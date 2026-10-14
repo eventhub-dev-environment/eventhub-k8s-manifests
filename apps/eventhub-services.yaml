@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: eventhub-services
+  namespace: argocd
+spec:
+  generators:
+    - git:
+        repoURL: 'https://github.com/eventhub-dev-environment/eventhub-k8s-manifests.git'
+        revision: main
+        directories:
+          - path: 'services/*/overlays/dev'
+  template:
+    metadata:
+      name: '{{path[1]}}-dev'
+      annotations:
+        argocd.argoproj.io/manifest-generate-paths: '{{path}}'
+    spec:
+      project: default
+      source:
+        repoURL: 'https://github.com/eventhub-dev-environment/eventhub-k8s-manifests.git'
+        targetRevision: main
+        path: '{{path}}'
+      destination:
+        server: 'https://kubernetes.default.svc'
+        namespace: eventhub
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

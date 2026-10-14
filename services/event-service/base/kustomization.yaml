@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml
+  - service.yaml
+configMapGenerator:
+  - name: event-service-config
+    literals:
+      - AWS_S3_ENDPOINT=
+      - AWS_S3_REGION=us-east-1
+      - AWS_S3_BUCKET_NAME=eventhub-branding-prod
+      - AWS_S3_PUBLIC_URL=https://eventhub-branding-prod.s3.us-east-1.amazonaws.com

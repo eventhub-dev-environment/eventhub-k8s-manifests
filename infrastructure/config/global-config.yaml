@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: eventhub-global-config
+  namespace: eventhub
+data:
+  SPRING_PROFILES_ACTIVE: "dev"
+  MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: "http://zipkin:9411/api/v2/spans"

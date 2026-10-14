@@ -1,0 +1,21 @@
+# OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# IDE & Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local secrets & environment files (Seguridad)
+*.env
+*.env.local
+secrets/*.env
+!infrastructure/secrets/secrets.example.env
+
+# Temporary / Build artifacts
+*.tmp
+*.bak
+.kustomize/
