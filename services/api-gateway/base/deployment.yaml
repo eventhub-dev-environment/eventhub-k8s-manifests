@@ -16,7 +16,7 @@ spec:
           image: juankxxd/eventhub-api-gateway
           ports:
             - name: http
-              containerPort: 8080
+              containerPort: 8000
           envFrom:
             - configMapRef:
                 name: eventhub-global-config

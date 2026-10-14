@@ -16,13 +16,24 @@ spec:
           image: juankxxd/eventhub-config-service
           ports:
             - name: http
-              containerPort: 8888
+              containerPort: 8081
           envFrom:
             - configMapRef:
                 name: eventhub-global-config
           env:
             - name: JAVA_TOOL_OPTIONS
               value: "-XX:MaxRAMPercentage=75"
+            - name: SPRING_DATA_MONGODB_URI
+              value: "mongodb://$(MONGO_ROOT_USER):$(MONGO_ROOT_PASS)@mongodb:27017/eventhub_config_db?authSource=admin"
+            - name: MONGO_ROOT_USER
+              valueFrom:
+                secretKeyRef: { name: eventhub-global-secrets, key: MONGO_ROOT_USER }
+            - name: MONGO_ROOT_PASS
+              valueFrom:
+                secretKeyRef: { name: eventhub-global-secrets, key: MONGO_ROOT_PASS }
+            - name: GATEWAY_INTERNAL_SECRET
+              valueFrom:
+                secretKeyRef: { name: eventhub-global-secrets, key: GATEWAY_INTERNAL_SECRET }
           resources:
             requests:
               cpu: 100m
@@ -32,7 +43,7 @@ spec:
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             periodSeconds: 5
-            failureThreshold: 30
+            failureThreshold: 60
           readinessProbe:
             httpGet: { path: /actuator/health/readiness, port: http }
             periodSeconds: 10
