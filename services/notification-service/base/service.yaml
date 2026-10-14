@@ -5,8 +5,8 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    - port: 8085
-      targetPort: 8085
+    - port: 8086
+      targetPort: 8086
       protocol: TCP
   selector:
     app: notification-service

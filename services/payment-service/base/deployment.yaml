@@ -16,7 +16,7 @@ spec:
           image: juankxxd/eventhub-payment-service
           ports:
             - name: http
-              containerPort: 8084
+              containerPort: 8085
           envFrom:
             - configMapRef:
                 name: eventhub-global-config
@@ -26,6 +26,9 @@ spec:
             - name: SPRING_DATASOURCE_URL
               valueFrom:
                 secretKeyRef: { name: eventhub-global-secrets, key: NEON_DB_PAYMENT_URL }
+            - name: GATEWAY_INTERNAL_SECRET
+              valueFrom:
+                secretKeyRef: { name: eventhub-global-secrets, key: GATEWAY_INTERNAL_SECRET }
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom:
                 secretKeyRef: { name: eventhub-global-secrets, key: NEON_DB_USER }
