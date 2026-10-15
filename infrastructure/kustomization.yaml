@@ -8,3 +8,5 @@ resources:
   - zipkin/zipkin.yaml
   - rabbitmq/rabbitmq.yaml
   - ingress/ingress.yaml
+  - monitoring/prometheus.yaml
+  - monitoring/grafana.yaml
