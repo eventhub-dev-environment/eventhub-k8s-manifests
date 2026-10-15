@@ -21,6 +21,8 @@ data:
             regex: (api-gateway|auth-service|config-service|event-service|booking-service|payment-service|notification-service)
           - source_labels: [__meta_kubernetes_pod_label_app]
             target_label: application
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            target_label: app
 ---
 apiVersion: apps/v1
 kind: Deployment
