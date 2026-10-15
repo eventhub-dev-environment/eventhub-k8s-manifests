@@ -141,6 +141,7 @@ El archivo de ejemplo enumera estas claves:
 | `NEON_DB_AUTH_URL`, `NEON_DB_BOOKING_URL`, `NEON_DB_PAYMENT_URL` | URLs JDBC de las bases de auth, booking y payment |
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` | Configuración SMTP de notificaciones |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Acceso S3 usado por eventos y notificaciones |
+| `GRAFANA_ADMIN_PASS` | Contraseña administrativa de Grafana |
 
 Configura los valores de acuerdo con el proveedor y el entorno que estés usando. Además, el overlay de `event-service` contiene configuración no secreta de S3 (región, bucket, URL pública y un endpoint inicialmente vacío); ajústala en `services\event-service\base\kustomization.yaml` si tu entorno requiere valores distintos. No uses credenciales de producción en un clúster de desarrollo.
 
@@ -155,7 +156,7 @@ kubectl apply -f apps\infrastructure.yaml
 kubectl apply -f apps\eventhub-services.yaml
 ```
 
-La Application `eventhub-infrastructure` sincroniza `infrastructure/`: configuración global, MongoDB, RabbitMQ y Zipkin. El ApplicationSet `eventhub-services` detecta cada directorio `services/*/overlays/dev` y crea una Application por servicio, con sincronización automática, autorreparación y eliminación de recursos que ya no estén declarados (`prune`).
+La Application `eventhub-infrastructure` sincroniza `infrastructure/`: configuración global, MongoDB, RabbitMQ, Zipkin, Prometheus y Grafana. Prometheus descubre los Pods del namespace `eventhub` con permisos limitados de lectura. El ApplicationSet `eventhub-services` detecta cada directorio `services/*/overlays/dev` y crea una Application por servicio, con sincronización automática, autorreparación y eliminación de recursos que ya no estén declarados (`prune`).
 
 Comprueba la sincronización y el arranque:
 
@@ -191,9 +192,11 @@ También puedes abrir interfaces de administración locales con reenvíos tempor
 ```powershell
 kubectl -n eventhub port-forward svc/zipkin 9411:9411
 kubectl -n eventhub port-forward svc/rabbitmq 15672:15672
+kubectl -n eventhub port-forward svc/prometheus 9090:9090
+kubectl -n eventhub port-forward svc/grafana 3000:3000
 ```
 
-Con cada comando activo, Zipkin se consulta en `http://localhost:9411` y RabbitMQ Management en `http://localhost:15672`. Inicia sesión en RabbitMQ con los valores configurados en `RABBITMQ_USER` y `RABBITMQ_PASS`.
+Con cada comando activo, Zipkin se consulta en `http://localhost:9411`, RabbitMQ Management en `http://localhost:15672`, Prometheus en `http://localhost:9090` y Grafana en `http://localhost:3000`. Inicia sesión en RabbitMQ con `RABBITMQ_USER` y `RABBITMQ_PASS`; Grafana usa el usuario `admin` y `GRAFANA_ADMIN_PASS`.
 
 ## Diagnóstico y operación
 
