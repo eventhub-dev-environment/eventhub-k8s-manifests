@@ -10,3 +10,4 @@ resources:
   - ingress/ingress.yaml
   - monitoring/prometheus.yaml
   - monitoring/grafana.yaml
+  - monitoring/hpa.yaml
