@@ -23,14 +23,14 @@ spec:
           env:
             - name: JAVA_TOOL_OPTIONS
               value: "-XX:MaxRAMPercentage=75"
-            - name: SPRING_DATA_MONGODB_URI
-              value: "mongodb://$(MONGO_ROOT_USER):$(MONGO_ROOT_PASS)@mongodb:27017/eventhub_notifications_db?authSource=admin"
             - name: MONGO_ROOT_USER
               valueFrom:
                 secretKeyRef: { name: eventhub-global-secrets, key: MONGO_ROOT_USER }
             - name: MONGO_ROOT_PASS
               valueFrom:
                 secretKeyRef: { name: eventhub-global-secrets, key: MONGO_ROOT_PASS }
+            - name: SPRING_DATA_MONGODB_URI
+              value: "mongodb://$(MONGO_ROOT_USER):$(MONGO_ROOT_PASS)@mongodb:27017/eventhub_notifications_db?authSource=admin"
             - name: SPRING_RABBITMQ_HOST
               value: "rabbitmq"
             - name: SPRING_RABBITMQ_PORT
