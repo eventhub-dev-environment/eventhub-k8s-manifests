@@ -41,6 +41,8 @@ Todos los componentes de la aplicación están en el namespace `eventhub`. Los s
 | `rabbitmq` | 5672 / 15672 | Mensajería AMQP / consola de administración |
 | `zipkin` | 9411 | Interfaz de trazas distribuidas |
 
+Notification Service limita la consulta de branding a Event Service a 2 segundos para conectar y 3 segundos para recibir respuesta. Si vence el timeout, continúa generando y enviando el ticket con branding genérico; los valores se configuran en `spring.cloud.openfeign.client.config.event-service` dentro de `application.yaml`.
+
 MongoDB y RabbitMQ se despliegan como `StatefulSet` de una réplica y solicitan almacenamiento persistente (2 GiB y 1 GiB, respectivamente). Los manifiestos no instalan PostgreSQL: los servicios relacionales usan las bases de datos externas configuradas en Neon. Zipkin recibe las trazas indicadas por `eventhub-global-config`.
 
 Los despliegues de los microservicios incluyen probes HTTP de salud y límites/solicitudes de recursos. La infraestructura declara un `Ingress` de clase `traefik` que envía las solicitudes con ruta `/` al `api-gateway:8000`; no define un hostname ni TLS. Para que el Ingress sea accesible desde el equipo, el clúster debe tener Traefik activo y exponer su puerto HTTP al host (por ejemplo, mediante el mapeo configurado al crear k3d). Si eso no está configurado, usa `kubectl port-forward`.
