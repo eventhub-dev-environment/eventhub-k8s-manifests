@@ -153,6 +153,8 @@ El archivo de ejemplo enumera estas claves:
 
 Configura los valores de acuerdo con el proveedor y el entorno que estés usando. Además, el overlay de `event-service` contiene configuración no secreta de S3 (región, bucket, URL pública y un endpoint inicialmente vacío); ajústala en `services\event-service\base\kustomization.yaml` si tu entorno requiere valores distintos. No uses credenciales de producción en un clúster de desarrollo.
 
+Auth Service ahora usa Flyway y Hibernate valida el esquema sin modificarlo. Antes de sincronizar una base Auth existente con Argo CD, haz un backup y revisa su estructura: si solo contiene `users` compatible con la migración V1, registra manualmente el baseline Flyway en versión 1 para que se aplique V2; si ya contiene `users`, `user_global_roles` y `user_tenant_roles` compatibles con ambas migraciones, registra el baseline en versión 2. No habilites `baseline-on-migrate` ni apliques V2 sobre tablas de membresía existentes. El README de Auth Service describe el esquema y la revisión de roles antiguos; las membresías tenant no se pueden reconstruir de forma segura a partir del campo global `users.role`.
+
 Alertmanager necesita además un Secret independiente para el URL del webhook, porque el destino no debe guardarse en el repositorio ni en `eventhub-global-secrets`. Aprovisiónalo desde un archivo local protegido con una sola línea que contenga el URL y la clave `webhook-url`:
 
 ```powershell
