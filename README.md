@@ -35,7 +35,7 @@ Todos los componentes de la aplicación están en el namespace `eventhub`. Los s
 | `auth-service` | 8082 | Autenticación; PostgreSQL en Neon |
 | `event-service` | 8083 | Eventos y branding; MongoDB y AWS S3 |
 | `booking-service` | 8084 | Reservas; PostgreSQL en Neon y RabbitMQ |
-| `payment-service` | 8085 | Pagos; PostgreSQL en Neon y RabbitMQ |
+| `payment-service` | 8085 | Stripe Checkout y webhooks; PostgreSQL en Neon y RabbitMQ |
 | `notification-service` | 8086 | Notificaciones; MongoDB, RabbitMQ, correo y AWS S3 |
 | `mongodb` | 27017 | Persistencia MongoDB para configuración, eventos y notificaciones |
 | `rabbitmq` | 5672 / 15672 | Mensajería AMQP / consola de administración |
@@ -137,6 +137,8 @@ El archivo de ejemplo enumera estas claves:
 | `MONGO_ROOT_USER`, `MONGO_ROOT_PASS` | Usuario y contraseña root de MongoDB |
 | `RABBITMQ_USER`, `RABBITMQ_PASS` | Usuario y contraseña de RabbitMQ |
 | `GATEWAY_INTERNAL_SECRET`, `JWT_SECRET` | Comunicación interna entre gateway y servicios, y firma JWT |
+| `PAYMENT_WEBHOOK_HMAC_SECRET` | Secreto opcional para el webhook HMAC interno heredado; no verifica Stripe |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Creación de Checkout Sessions y verificación del endpoint webhook de Stripe |
 | `NEON_DB_USER`, `NEON_DB_PASS` | Credenciales de PostgreSQL en Neon |
 | `NEON_DB_AUTH_URL`, `NEON_DB_BOOKING_URL`, `NEON_DB_PAYMENT_URL` | URLs JDBC de las bases de auth, booking y payment |
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` | Configuración SMTP de notificaciones |
@@ -144,6 +146,8 @@ El archivo de ejemplo enumera estas claves:
 | `GRAFANA_ADMIN_PASS` | Contraseña administrativa de Grafana |
 
 Configura los valores de acuerdo con el proveedor y el entorno que estés usando. Además, el overlay de `event-service` contiene configuración no secreta de S3 (región, bucket, URL pública y un endpoint inicialmente vacío); ajústala en `services\event-service\base\kustomization.yaml` si tu entorno requiere valores distintos. No uses credenciales de producción en un clúster de desarrollo.
+
+Para habilitar Stripe Checkout, añade `STRIPE_SECRET_KEY` y `STRIPE_WEBHOOK_SECRET` al archivo local `infrastructure\secrets\secrets.env` y vuelve a aplicar el Secret. Configura las URLs de retorno no secretas `PAYMENT_CHECKOUT_SUCCESS_URL` y `PAYMENT_CHECKOUT_CANCEL_URL` en `infrastructure\config\global-config.yaml`; `payment-service` solo habilita Checkout cuando ambas están definidas. Registra en Stripe el endpoint `POST /api/v1/payments/webhook/stripe` con los eventos `payment_intent.succeeded` y `payment_intent.payment_failed`. El webhook usa `STRIPE_WEBHOOK_SECRET` (prefijo `whsec_`), no `PAYMENT_WEBHOOK_HMAC_SECRET`. El Ingress incluido aún no configura hostname ni TLS; publica una URL HTTPS accesible desde Stripe antes de registrar el webhook.
 
 ### 4. Registrar las aplicaciones de Argo CD
 

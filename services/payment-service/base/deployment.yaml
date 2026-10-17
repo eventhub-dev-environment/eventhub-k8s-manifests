@@ -35,6 +35,20 @@ spec:
                   name: eventhub-global-secrets
                   key: PAYMENT_WEBHOOK_HMAC_SECRET
                   optional: true
+            - name: STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: eventhub-global-secrets
+                  key: STRIPE_SECRET_KEY
+                  optional: true
+            - name: STRIPE_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: eventhub-global-secrets
+                  key: STRIPE_WEBHOOK_SECRET
+                  optional: true
+            - name: BOOKING_SERVICE_URL
+              value: "http://booking-service:8084"
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom:
                 secretKeyRef: { name: eventhub-global-secrets, key: NEON_DB_USER }
