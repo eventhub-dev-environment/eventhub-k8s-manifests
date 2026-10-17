@@ -38,12 +38,16 @@ Todos los componentes de la aplicación están en el namespace `eventhub`. Los s
 | `payment-service` | 8085 | Stripe Checkout y webhooks; PostgreSQL en Neon y RabbitMQ |
 | `notification-service` | 8086 | Notificaciones; MongoDB, RabbitMQ, correo y AWS S3 |
 | `mongodb` | 27017 | Persistencia MongoDB para configuración, eventos y notificaciones |
-| `rabbitmq` | 5672 / 15672 | Mensajería AMQP / consola de administración |
+| `rabbitmq` | 5672 / 15672 / 15692 | Mensajería AMQP / consola de administración / métricas internas |
+| `prometheus` | 9090 | Métricas y evaluación de reglas de alerta |
+| `alertmanager` | 9093 | Enrutamiento de alertas a un webhook |
 | `zipkin` | 9411 | Interfaz de trazas distribuidas |
 
 Notification Service limita la consulta de branding a Event Service a 2 segundos para conectar y 3 segundos para recibir respuesta. Si vence el timeout, continúa generando y enviando el ticket con branding genérico; los valores se configuran en `spring.cloud.openfeign.client.config.event-service` dentro de `application.yaml`.
 
 MongoDB y RabbitMQ se despliegan como `StatefulSet` de una réplica y solicitan almacenamiento persistente (2 GiB y 1 GiB, respectivamente). Los manifiestos no instalan PostgreSQL: los servicios relacionales usan las bases de datos externas configuradas en Neon. Zipkin recibe las trazas indicadas por `eventhub-global-config`.
+
+RabbitMQ habilita `rabbitmq_prometheus` y expone el puerto 15692 únicamente mediante un Service `ClusterIP`; Prometheus consulta `/metrics/detailed` para obtener profundidad por cola. Las reglas alertan cuando cualquier cola `.dlq` conserva mensajes durante 5 minutos, cuando Booking o Payment registran eventos outbox `FAILED` (en la siguiente evaluación), y si el endpoint de métricas RabbitMQ permanece inaccesible durante 1 minuto. Alertmanager enruta esas alertas a un webhook compatible, sin exponer el servicio fuera del clúster.
 
 Los despliegues de los microservicios incluyen probes HTTP de salud y límites/solicitudes de recursos. La infraestructura declara un `Ingress` de clase `traefik` que envía las solicitudes con ruta `/` al `api-gateway:8000`; no define un hostname ni TLS. Para que el Ingress sea accesible desde el equipo, el clúster debe tener Traefik activo y exponer su puerto HTTP al host (por ejemplo, mediante el mapeo configurado al crear k3d). Si eso no está configurado, usa `kubectl port-forward`.
 
@@ -149,6 +153,15 @@ El archivo de ejemplo enumera estas claves:
 
 Configura los valores de acuerdo con el proveedor y el entorno que estés usando. Además, el overlay de `event-service` contiene configuración no secreta de S3 (región, bucket, URL pública y un endpoint inicialmente vacío); ajústala en `services\event-service\base\kustomization.yaml` si tu entorno requiere valores distintos. No uses credenciales de producción en un clúster de desarrollo.
 
+Alertmanager necesita además un Secret independiente para el URL del webhook, porque el destino no debe guardarse en el repositorio ni en `eventhub-global-secrets`. Aprovisiónalo desde un archivo local protegido con una sola línea que contenga el URL y la clave `webhook-url`:
+
+```powershell
+$webhookFile = Read-Host "Ruta del archivo local protegido con el URL del webhook"
+kubectl -n eventhub create secret generic eventhub-alertmanager-secrets --from-file="webhook-url=$webhookFile" --dry-run=client -o yaml | kubectl apply -f -
+```
+
+El archivo no se debe añadir al repositorio ni incluir su contenido en logs o tickets. El Deployment de Alertmanager requiere este Secret; créalo antes de sincronizar la infraestructura. El receptor genérico debe aceptar el payload estándar de webhook de Alertmanager.
+
 Para habilitar Stripe Checkout, añade `STRIPE_SECRET_KEY` y `STRIPE_WEBHOOK_SECRET` al archivo local `infrastructure\secrets\secrets.env` y vuelve a aplicar el Secret. Configura las URLs de retorno no secretas `PAYMENT_CHECKOUT_SUCCESS_URL` y `PAYMENT_CHECKOUT_CANCEL_URL` en `infrastructure\config\global-config.yaml`; `payment-service` solo habilita Checkout cuando ambas están definidas. Registra en Stripe el endpoint `POST /api/v1/payments/webhook/stripe` con los eventos `checkout.session.completed`, `checkout.session.expired`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `payment_intent.succeeded`, `payment_intent.payment_failed` y `refund.updated`. El webhook usa `STRIPE_WEBHOOK_SECRET` (prefijo `whsec_`), no `PAYMENT_WEBHOOK_HMAC_SECRET`. Payment Service persiste cada intento con su Checkout Session y permite como máximo una sesión activa por reserva; reconcilia y cierra las sesiones tras un fallo o al expirar el hold de Booking (10 minutos), y solo permite otro intento mientras ese hold siga vigente. La migración Flyway V4 crea el registro de intentos y elimina la unicidad de `payments.booking_id`; en bases existentes, deja que Flyway aplique V4 durante el despliegue y no la marques como baseline si ya se ha aplicado V3. El Ingress incluido aún no configura hostname ni TLS; publica una URL HTTPS accesible desde Stripe antes de registrar el webhook.
 
 V4 no puede asociar Checkout Sessions creadas por versiones anteriores porque sus IDs no se persistían. Antes de actualizar un entorno con tráfico, espera a que terminen los holds pendientes y cierra manualmente en Stripe las sesiones antiguas que sigan abiertas; no habilites nuevos pagos hasta completar esa limpieza. La reconciliación automática de sesiones nuevas se ejecuta cada 15 segundos por defecto.
@@ -203,10 +216,11 @@ También puedes abrir interfaces de administración locales con reenvíos tempor
 kubectl -n eventhub port-forward svc/zipkin 9411:9411
 kubectl -n eventhub port-forward svc/rabbitmq 15672:15672
 kubectl -n eventhub port-forward svc/prometheus 9090:9090
+kubectl -n eventhub port-forward svc/alertmanager 9093:9093
 kubectl -n eventhub port-forward svc/grafana 3000:3000
 ```
 
-Con cada comando activo, Zipkin se consulta en `http://localhost:9411`, RabbitMQ Management en `http://localhost:15672`, Prometheus en `http://localhost:9090` y Grafana en `http://localhost:3000`. Inicia sesión en RabbitMQ con `RABBITMQ_USER` y `RABBITMQ_PASS`; Grafana usa el usuario `admin` y `GRAFANA_ADMIN_PASS`.
+Con cada comando activo, Zipkin se consulta en `http://localhost:9411`, RabbitMQ Management en `http://localhost:15672`, Prometheus en `http://localhost:9090`, Alertmanager en `http://localhost:9093` y Grafana en `http://localhost:3000`. Inicia sesión en RabbitMQ con `RABBITMQ_USER` y `RABBITMQ_PASS`; Grafana usa el usuario `admin` y `GRAFANA_ADMIN_PASS`.
 
 ## Diagnóstico y operación
 

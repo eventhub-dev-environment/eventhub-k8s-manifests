@@ -4,9 +4,47 @@ metadata:
   name: prometheus-config
   namespace: eventhub
 data:
+  prometheus.rules.yml: |
+    groups:
+      - name: eventhub-reliability
+        rules:
+          - alert: RabbitMQDeadLetterQueueBacklog
+            expr: sum by (vhost, queue) (rabbitmq_detailed_queue_messages{queue=~".*\\.dlq"}) > 0
+            for: 5m
+            labels:
+              severity: warning
+              service: rabbitmq
+            annotations:
+              summary: RabbitMQ dead-letter queue has messages
+              description: Queue {{ $labels.queue }} in vhost {{ $labels.vhost }} has {{ $value }} message(s) for at least 5 minutes.
+          - alert: EventHubOutboxPublishFailure
+            expr: eventhub_outbox_failed_events > 0
+            labels:
+              severity: critical
+              service: "{{ $labels.service }}"
+            annotations:
+              summary: Outbox events exhausted publishing retries
+              description: The {{ $labels.service }} service has {{ $value }} failed outbox event(s) requiring recovery.
+          - alert: RabbitMQMetricsUnavailable
+            expr: up{job="rabbitmq"} == 0
+            for: 1m
+            labels:
+              severity: warning
+              service: rabbitmq
+            annotations:
+              summary: RabbitMQ metrics endpoint is unavailable
+              description: Prometheus cannot scrape RabbitMQ metrics for at least 1 minute.
   prometheus.yml: |
     global:
       scrape_interval: 15s
+      evaluation_interval: 15s
+    rule_files:
+      - /etc/prometheus/prometheus.rules.yml
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets:
+                - alertmanager:9093
     scrape_configs:
       - job_name: 'eventhub-microservices'
         metrics_path: '/actuator/prometheus'
@@ -23,6 +61,14 @@ data:
             target_label: application
           - source_labels: [__meta_kubernetes_pod_label_app]
             target_label: app
+      - job_name: 'rabbitmq'
+        metrics_path: '/metrics/detailed'
+        params:
+          family:
+            - queue_coarse_metrics
+        static_configs:
+          - targets:
+              - rabbitmq:15692
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -68,6 +114,95 @@ spec:
       targetPort: 9090
   selector:
     app: prometheus
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: eventhub
+data:
+  alertmanager.yml: |
+    route:
+      receiver: eventhub-webhook
+      group_by: [alertname, service]
+      group_wait: 10s
+      group_interval: 5m
+      repeat_interval: 4h
+    receivers:
+      - name: eventhub-webhook
+        webhook_configs:
+          - url_file: /run/secrets/webhook-url
+            send_resolved: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: eventhub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alertmanager
+  template:
+    metadata:
+      labels:
+        app: alertmanager
+    spec:
+      containers:
+        - name: alertmanager
+          image: prom/alertmanager:v0.27.0
+          args:
+            - "--config.file=/etc/alertmanager/alertmanager.yml"
+            - "--storage.path=/alertmanager"
+          ports:
+            - name: http
+              containerPort: 9093
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/alertmanager
+            - name: webhook-secret
+              mountPath: /run/secrets
+              readOnly: true
+            - name: storage
+              mountPath: /alertmanager
+      volumes:
+        - name: config-volume
+          configMap:
+            name: alertmanager-config
+        - name: webhook-secret
+          secret:
+            secretName: eventhub-alertmanager-secrets
+            items:
+              - key: webhook-url
+                path: webhook-url
+        - name: storage
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: eventhub
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9093
+      targetPort: http
+  selector:
+    app: alertmanager
 ---
 apiVersion: v1
 kind: ServiceAccount
