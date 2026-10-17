@@ -1,3 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rabbitmq-enabled-plugins
+  namespace: eventhub
+data:
+  enabled_plugins: "[rabbitmq_management,rabbitmq_prometheus]."
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -22,6 +30,8 @@ spec:
               name: amqp
             - containerPort: 15672
               name: http-mgmt
+            - containerPort: 15692
+              name: prometheus
           env:
             - name: RABBITMQ_DEFAULT_USER
               valueFrom:
@@ -50,8 +60,16 @@ spec:
             initialDelaySeconds: 30
             periodSeconds: 15
           volumeMounts:
+            - name: enabled-plugins
+              mountPath: /etc/rabbitmq/enabled_plugins
+              subPath: enabled_plugins
+              readOnly: true
             - name: rabbitmq-data
               mountPath: /var/lib/rabbitmq
+      volumes:
+        - name: enabled-plugins
+          configMap:
+            name: rabbitmq-enabled-plugins
   volumeClaimTemplates:
     - metadata:
         name: rabbitmq-data
@@ -75,5 +93,8 @@ spec:
     - port: 15672
       targetPort: http-mgmt
       name: http-mgmt
+    - port: 15692
+      targetPort: prometheus
+      name: prometheus
   selector:
     app: rabbitmq

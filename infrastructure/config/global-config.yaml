@@ -6,3 +6,5 @@ metadata:
 data:
   SPRING_PROFILES_ACTIVE: "dev"
   MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT: "http://zipkin:9411/api/v2/spans"
+  PAYMENT_CHECKOUT_SUCCESS_URL: "http://localhost:3000/success.html"
+  PAYMENT_CHECKOUT_CANCEL_URL: "http://localhost:3000/cancel.html"
